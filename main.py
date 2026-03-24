@@ -15,12 +15,12 @@ from telegram.ext import (
 )
 
 # ===== CONFIG =====
-BOT_TOKEN = "PASTE_YOUR_REAL_BOT_TOKEN_HERE"
+BOT_TOKEN = "PASTE_YOUR_BOT_TOKEN"
 
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 587
-SMTP_USER = "your_email@gmail.com"
-SMTP_PASS = "your_app_password"
+SMTP_USER = "areeshashamsi11@gmail.com"
+SMTP_PASS = "YOUR_APP_PASSWORD"
 
 DATA_DIR = "data"
 RESUME_DIR = os.path.join(DATA_DIR, "resumes")
@@ -73,7 +73,7 @@ async def register_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ Registered! Now upload resume using /uploadresume")
     return ConversationHandler.END
 
-# ===== UPLOAD RESUME (FIXED) =====
+# ===== UPLOAD RESUME =====
 async def upload_resume_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📄 Send your resume (PDF)")
     return UPLOAD_RESUME
@@ -98,7 +98,7 @@ async def upload_resume_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await update.message.reply_text("✅ Resume uploaded successfully!")
     return ConversationHandler.END
 
-# ===== SEND EMAIL =====
+# ===== SEND EMAIL (UPDATED BODY) =====
 async def send_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         chat_id = str(update.effective_chat.id)
@@ -112,25 +112,29 @@ async def send_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text
 
         if "," not in text:
-            await update.message.reply_text("❌ Format: email,company")
+            await update.message.reply_text("❌ Format: email,company,role")
             return
 
-        email, company = text.split(",")
+        parts = text.split(",")
+        email = parts[0].strip()
+        company = parts[1].strip()
+        role = parts[2].strip() if len(parts) > 2 else "the role"
 
         msg = EmailMessage()
         msg['From'] = SMTP_USER
-        msg['To'] = email.strip()
-        msg['Subject'] = f"Application for opportunity at {company.strip()}"
+        msg['To'] = email
+        msg['Subject'] = f"Application for {role}"
 
         body = f"""
-Hello {company.strip()} Team,
+Hello {company},
 
-My name is {user['name']} and I am very interested in opportunities at your company.
-Please find my resume attached.
+My name is {user['name']} and I am very interested in the {role} role at your company. I believe my skills and experience make me a strong fit, and I would love the opportunity to contribute. Please find my resume attached for your review.
 
-Regards,
-{user['name']}
-{user['email']}
+Thank you for your time and consideration. I look forward to hearing from you.
+
+Best regards,  
+{user['name']}  
+{user['email']}  
 {user['phone']}
 """
         msg.set_content(body)
@@ -148,7 +152,7 @@ Regards,
             server.login(SMTP_USER, SMTP_PASS)
             server.send_message(msg)
 
-        await update.message.reply_text("✅ Email sent!")
+        await update.message.reply_text("✅ Email sent successfully!")
 
     except Exception as e:
         await update.message.reply_text(f"❌ Error: {e}")
@@ -159,7 +163,6 @@ def main():
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # REGISTER FLOW
     reg = ConversationHandler(
         entry_points=[CommandHandler("register", register_start)],
         states={
@@ -170,7 +173,6 @@ def main():
         fallbacks=[]
     )
 
-    # UPLOAD FLOW (IMPORTANT)
     upload_conv = ConversationHandler(
         entry_points=[CommandHandler("uploadresume", upload_resume_start)],
         states={
@@ -183,8 +185,6 @@ def main():
 
     app.add_handler(reg)
     app.add_handler(upload_conv)
-
-    # SEND EMAIL HANDLER
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, send_email))
 
     print("Bot running...")
